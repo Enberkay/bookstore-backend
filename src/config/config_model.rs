@@ -1,3 +1,5 @@
+use anyhow::Result;
+
 pub struct AppConfig {
     pub server: Server,
     pub database: Database,
@@ -9,12 +11,33 @@ pub struct AppConfig {
     pub production: ProductionConfig,
 }
 
+// Server
 #[derive(Debug, Clone)]
 pub struct Server {
     pub port: u16,
     pub body_limit: u64,
     pub timeout_seconds: u32,
     pub cors_allowed_origins: Vec<String>,
+}
+
+impl Server {
+    pub fn validate(&self) -> Result<()> {
+        if self.port == 0 {
+            anyhow::bail!("Server port must be greater than 0.")
+        }
+        if self.body_limit == 0 {
+            anyhow::bail!("Server body limit must be greater than 0.")
+        }
+        if self.timeout_seconds == 0 {
+            anyhow::bail!("Server timeout must be greater than 0.")
+        }
+        for origin in &self.cors_allowed_origins {
+            if origin == "*" && !origin.starts_with("http://") && !origin.starts_with("https://") {
+                anyhow::bail!("Invalid CORS origin format: {}", origin)
+            }
+        }
+        Ok(())
+    }
 }
 
 #[derive(Debug, Clone)]
