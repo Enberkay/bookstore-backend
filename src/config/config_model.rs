@@ -112,6 +112,7 @@ impl JwtConfig {
     }
 }
 
+//Environment
 #[derive(Debug, Clone, PartialEq)]
 pub enum Environment {
     Development,
@@ -119,6 +120,20 @@ pub enum Environment {
     Production,
 }
 
+impl std::str::FromStr for Environment {
+    type Err = anyhow::Error;
+
+    fn from_str(s: &str) -> Result<Self> {
+        match s.to_lowercase().as_str() {
+            "development" | "dev" => Ok(Self::Development),
+            "staging" => Ok(Self::Staging),
+            "production" | "prod" => Ok(Self::Production),
+            _ => Err(anyhow::anyhow!("Invalid ENVIRONMENT: {}", s)),
+        }
+    }
+}
+
+// SecurityConfig
 #[derive(Debug, Clone)]
 pub struct SecurityConfig {
     pub rate_limit_requests_per_minute: u32,
