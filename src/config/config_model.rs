@@ -78,10 +78,23 @@ impl Redis {
     }
 }
 
+// UsersSecret
 #[derive(Debug, Clone)]
 pub struct UsersSecret {
     pub secret: String,
     pub refresh_secret: String,
+}
+
+impl UsersSecret {
+    pub fn validate(&self) -> Result<()> {
+        if self.secret.len() < 32 {
+            anyhow::bail!("JWT_USERS_SECRET must be ≥ 32 chars")
+        }
+        if self.refresh_secret.len() < 32 {
+            anyhow::bail!("JWT_USERS_REFRESH_SECRET must be ≥ 32 chars")
+        }
+        Ok(())
+    }
 }
 
 #[derive(Debug, Clone)]
