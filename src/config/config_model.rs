@@ -88,18 +88,28 @@ pub struct UsersSecret {
 impl UsersSecret {
     pub fn validate(&self) -> Result<()> {
         if self.secret.len() < 32 {
-            anyhow::bail!("JWT_USERS_SECRET must be ≥ 32 chars")
+            anyhow::bail!("JWT_USERS_SECRET must be ≥ 32 chars.")
         }
         if self.refresh_secret.len() < 32 {
-            anyhow::bail!("JWT_USERS_REFRESH_SECRET must be ≥ 32 chars")
+            anyhow::bail!("JWT_USERS_REFRESH_SECRET must be ≥ 32 chars.")
         }
         Ok(())
     }
 }
 
+// JwtConfig
 #[derive(Debug, Clone)]
 pub struct JwtConfig {
     pub access_token_expiry_minutes: u64,
+}
+
+impl JwtConfig {
+    pub fn validate(&self) -> Result<()> {
+        if self.access_token_expiry_minutes == 0 {
+            anyhow::bail!("JWT_ACCESS_TOKEN_EXPIRY_MINUTES must be > 0.")
+        }
+        Ok(())
+    }
 }
 
 #[derive(Debug, Clone, PartialEq)]
