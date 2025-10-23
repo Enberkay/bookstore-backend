@@ -89,6 +89,7 @@ pub fn load() -> Result<AppConfig> {
         users_secret,
     };
 
+    // Validate post-load constraints
     config.validate()?;
     Ok(config)
 }

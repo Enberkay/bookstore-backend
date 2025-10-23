@@ -11,6 +11,52 @@ pub struct AppConfig {
     pub production: ProductionConfig,
 }
 
+impl AppConfig {
+    pub fn validate(&self) -> Result<()> {
+        self.server.validate()?;
+        self.database.validate()?;
+        self.redis.validate()?;
+        self.jwt.validate()?;
+        self.security.validate()?;
+        self.users_secret.validate()?;
+        self.validate_cross_configuration()?;
+        Ok(())
+    }
+
+    fn validate_cross_configuration(&self) -> Result<()> {
+        if self.jwt.access_token_expiry_minutes > 60 * 24 {
+            anyhow::bail!("JWT access token expiry should not exceed 24 hours")
+        }
+
+        match self.environment {
+            Environment::Production => {
+                if self.server.cors_allowed_origins.contains(&"*".to_string()) {
+                    anyhow::bail!("CORS cannot allow all origins (*) in production")
+                }
+                if self.security.rate_limit_requests_per_minute > 1000 {
+                    anyhow::bail!("Rate limit too high (>1000 req/min) in production")
+                }
+            }
+            Environment::Staging => {
+                if self.server.cors_allowed_origins.contains(&"*".to_string()) {
+                    anyhow::bail!("CORS cannot allow all origins (*) in staging")
+                }
+            }
+            Environment::Development => {}
+        }
+
+        if self.production.https_redirect && self.environment != Environment::Production {
+            anyhow::bail!("HTTPS redirect only allowed in production")
+        }
+
+        if self.production.trust_proxy && self.environment == Environment::Development {
+            anyhow::bail!("Trust proxy not allowed in development")
+        }
+
+        Ok(())
+    }
+}
+
 // Server
 #[derive(Debug, Clone)]
 pub struct Server {
