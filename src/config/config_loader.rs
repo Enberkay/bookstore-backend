@@ -37,8 +37,13 @@ pub fn load() -> Result<AppConfig> {
             .collect(),
     };
 
+    // Database
+    let database = Database {
+        url: required_env("DATABASE_URL")?,
+    };
+
     // Compose full config
-    let config = AppConfig { server };
+    let config = AppConfig { server, database };
 
     config.validate()?;
     Ok(config)
