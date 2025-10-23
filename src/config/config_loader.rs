@@ -42,8 +42,19 @@ pub fn load() -> Result<AppConfig> {
         url: required_env("DATABASE_URL")?,
     };
 
+    // Redis
+    let redis = Redis {
+        url: required_env("REDIS_URL")?,
+        max_connections: parse_env("REDIS_MAX_CONNECTIONS")?,
+        refresh_token_expiry_days: parse_env("REDIS_REFRESH_TOKEN_EXPIRY_DAYS")?,
+    };
+
     // Compose full config
-    let config = AppConfig { server, database };
+    let config = AppConfig {
+        server,
+        database,
+        redis,
+    };
 
     config.validate()?;
     Ok(config)
