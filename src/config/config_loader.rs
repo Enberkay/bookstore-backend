@@ -57,6 +57,14 @@ pub fn load() -> Result<AppConfig> {
     // Environment
     let environment: Environment = required_env("ENVIRONMENT")?.parse()?;
 
+    // Security
+    let security = SecurityConfig {
+        rate_limit_requests_per_minute: parse_env("RATE_LIMIT_REQUESTS_PER_MINUTE")?,
+        argon2_memory_cost: parse_env("ARGON2_MEMORY_COST")?,
+        argon2_time_cost: parse_env("ARGON2_TIME_COST")?,
+        argon2_parallelism: parse_env("ARGON2_PARALLELISM")?,
+    };
+
     // Compose full config
     let config = AppConfig {
         server,
@@ -64,6 +72,7 @@ pub fn load() -> Result<AppConfig> {
         redis,
         jwt,
         environment,
+        security,
     };
 
     config.validate()?;
