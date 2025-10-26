@@ -4,6 +4,7 @@ pub mod branch;
 pub mod category;
 pub mod inventory;
 pub mod order;
+pub mod payment;
 pub mod permission;
 pub mod role;
 pub mod sale;
