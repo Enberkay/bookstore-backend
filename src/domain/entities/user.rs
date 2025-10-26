@@ -1,3 +1,4 @@
+use crate::domain::value_objects::email_address::EmailAddress;
 use chrono::{DateTime, Utc};
 
 #[derive(Debug, Clone)]
@@ -5,7 +6,7 @@ pub struct UserEntity {
     pub id: i32,
     pub first_name: String,
     pub last_name: String,
-    pub email: String,
+    pub email: EmailAddress,
     pub age: i32,
     pub sex: String,
     pub phone: String,
