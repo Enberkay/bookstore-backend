@@ -39,19 +39,11 @@ hex = "0.4.3"
 axum-extra = { version = "0.10.3", features = ["cookie"] }
 
 validator = { version = "0.20.0", features = ["derive"] }
-
-# Date & Time
 chrono = { version = "0.4.42", features = ["serde"] }
-
-bigdecimal = { version = "0.4", features = ["serde"] }
-
 dotenvy = "0.15.0"
 anyhow = "1.0.100"
-regex = "1.11.1"
 
-# Asynchronous
 async-trait = "0.1"
 
-# Logging & Observability
 tracing = "0.1"
 tracing-subscriber = "0.3.0"
