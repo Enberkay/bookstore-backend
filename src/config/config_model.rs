@@ -8,7 +8,6 @@ pub struct AppConfig {
     pub jwt: JwtConfig,
     pub environment: Environment,
     pub security: SecurityConfig,
-    pub production: ProductionConfig,
 }
 
 impl AppConfig {
@@ -44,15 +43,6 @@ impl AppConfig {
             }
             Environment::Development => {}
         }
-
-        if self.production.https_redirect && self.environment != Environment::Production {
-            anyhow::bail!("HTTPS redirect only allowed in production")
-        }
-
-        if self.production.trust_proxy && self.environment == Environment::Development {
-            anyhow::bail!("Trust proxy not allowed in development")
-        }
-
         Ok(())
     }
 }
@@ -201,10 +191,4 @@ impl SecurityConfig {
         }
         Ok(())
     }
-}
-
-#[derive(Debug, Clone)]
-pub struct ProductionConfig {
-    pub https_redirect: bool,
-    pub trust_proxy: bool,
 }

@@ -17,14 +17,6 @@ pub fn load() -> Result<AppConfig> {
             .map_err(|e| anyhow!("Invalid value for {}: {}", key, e))
     }
 
-    fn parse_bool_env(key: &str) -> Result<bool> {
-        match required_env(key)?.to_lowercase().as_str() {
-            "true" | "1" | "yes" => Ok(true),
-            "false" | "0" | "no" => Ok(false),
-            v => Err(anyhow!("Invalid boolean for {}: {}", key, v)),
-        }
-    }
-
     // Server
     let server = Server {
         port: parse_env("SERVER_PORT")?,
@@ -65,12 +57,6 @@ pub fn load() -> Result<AppConfig> {
         argon2_parallelism: parse_env("ARGON2_PARALLELISM")?,
     };
 
-    // Production
-    let production = ProductionConfig {
-        https_redirect: parse_bool_env("HTTPS_REDIRECT")?,
-        trust_proxy: parse_bool_env("TRUST_PROXY")?,
-    };
-
     // Secrets
     let users_secret = UsersSecret {
         secret: required_env("JWT_USERS_SECRET")?,
@@ -85,7 +71,6 @@ pub fn load() -> Result<AppConfig> {
         jwt,
         environment,
         security,
-        production,
         users_secret,
     };
 
