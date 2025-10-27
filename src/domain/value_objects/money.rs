@@ -1,3 +1,5 @@
+use std::ops::Mul;
+
 #[derive(Debug, Clone, Copy, PartialEq, PartialOrd)]
 pub struct Money(f64);
 
@@ -14,6 +16,11 @@ impl Money {
         // round to 2 decimals for currency precision
         let rounded = (value * 100.0).round() / 100.0;
         Ok(Self(rounded))
+    }
+
+    /// Create a Money value of zero
+    pub fn zero() -> Self {
+        Self(0.0)
     }
 
     /// Get the numeric value
@@ -49,5 +56,14 @@ trait RoundTo2Dp {
 impl RoundTo2Dp for f64 {
     fn round_to_2dp(self) -> f64 {
         (self * 100.0).round() / 100.0
+    }
+}
+
+/// Allow Money * f64 operator syntax
+impl Mul<f64> for Money {
+    type Output = Money;
+
+    fn mul(self, rhs: f64) -> Self::Output {
+        Money((self.0 * rhs).round_to_2dp())
     }
 }
