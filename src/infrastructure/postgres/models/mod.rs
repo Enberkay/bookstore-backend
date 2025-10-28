@@ -6,3 +6,4 @@ pub mod inventory_model;
 pub mod order_model;
 pub mod payment_model;
 pub mod sale_model;
+pub mod permission_model;
