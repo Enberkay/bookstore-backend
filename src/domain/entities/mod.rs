@@ -10,3 +10,4 @@ pub mod receipt;
 pub mod role;
 pub mod sale;
 pub mod user;
+pub mod refresh_token;
