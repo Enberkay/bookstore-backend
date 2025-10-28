@@ -7,3 +7,4 @@ pub mod order_model;
 pub mod payment_model;
 pub mod sale_model;
 pub mod permission_model;
+pub mod receipt_model;
