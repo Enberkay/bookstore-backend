@@ -1,24 +1,20 @@
 use chrono::{DateTime, Utc};
-use diesel::{Identifiable, Insertable, Queryable, Selectable};
-use bigdecimal::BigDecimal;
+use serde::{Deserialize, Serialize};
+use sqlx::FromRow;
+use rust_decimal::Decimal;
 
-use crate::{
-    infrastructure::postgres::schema::books,
-    domain::{
-        entities::book::BookEntity,
-        value_objects::{isbn13::Isbn13, money::Money},
-    },
+use crate::domain::{
+    entities::book::BookEntity,
+    value_objects::{isbn13::Isbn13, money::Money},
 };
 
-#[derive(Debug, Clone, Queryable, Insertable, Identifiable, Selectable)]
-#[diesel(table_name = books)]
-#[diesel(primary_key(isbn))]
+#[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
 pub struct BookModel {
     pub isbn: String,
     pub title: String,
     pub author: Option<String>,
     pub synopsis: Option<String>,
-    pub price: BigDecimal,
+    pub price: Decimal,
     pub is_active: bool,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
@@ -35,7 +31,7 @@ impl From<BookModel> for BookEntity {
             title: model.title,
             author: model.author,
             synopsis: model.synopsis,
-            price: Money::from_bigdecimal(&model.price).expect("Invalid price"),
+            price: Money::new(model.price).expect("Invalid price"),
             is_active: model.is_active,
             created_at: model.created_at,
             updated_at: model.updated_at,
@@ -50,7 +46,7 @@ impl From<BookEntity> for BookModel {
             title: entity.title,
             author: entity.author,
             synopsis: entity.synopsis,
-            price: entity.price.to_bigdecimal(),
+            price: entity.price.value(),
             is_active: entity.is_active,
             created_at: entity.created_at,
             updated_at: entity.updated_at,
