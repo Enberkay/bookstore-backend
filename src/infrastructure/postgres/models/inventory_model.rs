@@ -1,17 +1,13 @@
 use chrono::{DateTime, Utc};
-use diesel::{Identifiable, Insertable, Queryable, Selectable};
+use serde::{Deserialize, Serialize};
+use sqlx::FromRow;
 
-use crate::{
-    infrastructure::postgres::schema::inventories,
-    domain::{
-        entities::inventory::InventoryEntity,
-        value_objects::{isbn13::Isbn13, stock_quantity::StockQuantity},
-    },
+use crate::domain::{
+    entities::inventory::InventoryEntity,
+    value_objects::{isbn13::Isbn13, stock_quantity::StockQuantity},
 };
 
-#[derive(Debug, Clone, Queryable, Insertable, Identifiable, Selectable)]
-#[diesel(table_name = inventories)]
-#[diesel(primary_key(branch_id, book_isbn))]
+#[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
 pub struct InventoryModel {
     pub branch_id: i32,
     pub book_isbn: String,
