@@ -1,22 +1,18 @@
 use chrono::{DateTime, Utc};
-use diesel::{Identifiable, Insertable, Queryable, Selectable};
-use bigdecimal::{BigDecimal, ToPrimitive, FromPrimitive};
+use serde::{Deserialize, Serialize};
+use sqlx::FromRow;
+use rust_decimal::Decimal;
 
-use crate::{
-    infrastructure::postgres::schema::receipts,
-    domain::{
-        entities::receipt::ReceiptEntity,
-        value_objects::{money::Money, receipt_code::ReceiptCode},
-    },
+use crate::domain::{
+    entities::receipt::ReceiptEntity,
+    value_objects::{money::Money, receipt_code::ReceiptCode},
 };
 
 // ======================
-// ReceiptModel
+// ReceiptModel (SQLx)
 // ======================
 
-#[derive(Debug, Clone, Queryable, Insertable, Identifiable, Selectable)]
-#[diesel(table_name = receipts)]
-#[diesel(primary_key(id))]
+#[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
 pub struct ReceiptModel {
     pub id: i32,
     pub receipt_code: String,
@@ -25,7 +21,7 @@ pub struct ReceiptModel {
     pub source: String,
     pub user_id: Option<i32>,
     pub branch_id: Option<i32>,
-    pub total_amount: BigDecimal,
+    pub total_amount: Decimal,
     pub payment_method: Option<String>,
     pub payment_ref: Option<String>,
     pub issued_at: DateTime<Utc>,
@@ -49,7 +45,7 @@ impl From<ReceiptModel> for ReceiptEntity {
             source: model.source,
             user_id: model.user_id,
             branch_id: model.branch_id,
-            total_amount: Money::new(model.total_amount.to_f64().unwrap_or(0.0))
+            total_amount: Money::from_decimal(model.total_amount)
                 .expect("Invalid total amount"),
             payment_method: model.payment_method,
             payment_ref: model.payment_ref,
@@ -71,8 +67,7 @@ impl From<ReceiptEntity> for ReceiptModel {
             source: entity.source,
             user_id: entity.user_id,
             branch_id: entity.branch_id,
-            total_amount: BigDecimal::from_f64(entity.total_amount.value())
-                .unwrap_or_else(|| BigDecimal::from(0)),
+            total_amount: entity.total_amount.to_decimal(),
             payment_method: entity.payment_method,
             payment_ref: entity.payment_ref,
             issued_at: entity.issued_at,
