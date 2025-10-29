@@ -7,15 +7,12 @@ use std::ops::Mul;
 pub struct Money(Decimal);
 
 impl Money {
-    /// Create a new Money value. Must be >= 0 and finite.
+    /// Create a new Money value. Must be >= 0
     pub fn new(value: Decimal) -> DomainResult<Self> {
         if value.is_sign_negative() {
             return Err(DomainError::validation("Money cannot be negative"));
         }
-
-        // Round to 2 decimals for currency precision
-        let rounded = value.round_dp(2);
-        Ok(Self(rounded))
+        Ok(Self(value.round_dp(2)))
     }
 
     /// Create a Money value of zero
@@ -28,9 +25,19 @@ impl Money {
         self.0
     }
 
+    /// Convert from Decimal (used in models)
+    pub fn from_decimal(value: Decimal) -> DomainResult<Self> {
+        Self::new(value)
+    }
+
+    /// Convert Money → Decimal (for database persistence)
+    pub fn to_decimal(&self) -> Decimal {
+        self.0
+    }
+
     /// Add two Money values
     pub fn add(self, other: Money) -> Money {
-        Money(self.0 + other.0)
+        Money((self.0 + other.0).round_dp(2))
     }
 
     /// Subtract other Money (error if result < 0)
@@ -47,20 +54,20 @@ impl Money {
         Money((self.0 * Decimal::from(qty)).round_dp(2))
     }
 
-    /// Convert from f64 to Money (for legacy or quick tests)
+    /// Convert from f64 to Money (for tests)
     pub fn from_f64(value: f64) -> DomainResult<Self> {
         Decimal::try_from(value)
             .map_err(|_| DomainError::validation("Invalid float for Decimal"))
             .and_then(Money::new)
     }
 
-    /// Convert Money to f64 (for display only, possible precision loss)
+    /// Convert Money to f64 (for display)
     pub fn to_f64(&self) -> f64 {
         self.0.to_f64().unwrap_or(0.0)
     }
 }
 
-/// Allow Money * f64 operator syntax
+/// Allow Money * f64 syntax
 impl Mul<f64> for Money {
     type Output = Money;
 

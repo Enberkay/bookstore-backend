@@ -1,29 +1,25 @@
 use chrono::{DateTime, Utc};
-use diesel::{Identifiable, Insertable, Queryable, Selectable};
-use bigdecimal::{BigDecimal, ToPrimitive, FromPrimitive};
+use serde::{Deserialize, Serialize};
+use sqlx::FromRow;
+use rust_decimal::Decimal;
 
-use crate::{
-    infrastructure::postgres::schema::{orders, order_items},
-    domain::{
-        entities::order::{OrderEntity, OrderItemEntity},
-        value_objects::money::Money,
-    },
+use crate::domain::{
+    entities::order::{OrderEntity, OrderItemEntity},
+    value_objects::money::Money,
 };
 
 // ======================
 // OrderModel
 // ======================
 
-#[derive(Debug, Clone, Queryable, Insertable, Identifiable, Selectable)]
-#[diesel(table_name = orders)]
-#[diesel(primary_key(id))]
+#[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
 pub struct OrderModel {
     pub id: i32,
     pub user_id: Option<i32>,
     pub order_date: DateTime<Utc>,
     pub status: String,
     pub source: String,
-    pub total_amount: BigDecimal,
+    pub total_amount: Decimal,
     pub shipping_address: Option<String>,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
@@ -41,7 +37,7 @@ impl From<OrderModel> for OrderEntity {
             order_date: model.order_date,
             status: model.status,
             source: model.source,
-            total_amount: Money::new(model.total_amount.to_f64().unwrap_or(0.0))
+            total_amount: Money::from_decimal(model.total_amount)
                 .expect("Invalid total amount"),
             shipping_address: model.shipping_address,
             created_at: model.created_at,
@@ -58,8 +54,7 @@ impl From<OrderEntity> for OrderModel {
             order_date: entity.order_date,
             status: entity.status,
             source: entity.source,
-            total_amount: BigDecimal::from_f64(entity.total_amount.value())
-                .unwrap_or_else(|| BigDecimal::from(0)),
+            total_amount: entity.total_amount.to_decimal(),
             shipping_address: entity.shipping_address,
             created_at: entity.created_at,
             updated_at: entity.updated_at,
@@ -71,9 +66,7 @@ impl From<OrderEntity> for OrderModel {
 // OrderItemModel
 // ======================
 
-#[derive(Debug, Clone, Queryable, Insertable, Identifiable, Selectable)]
-#[diesel(table_name = order_items)]
-#[diesel(primary_key(id))]
+#[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
 pub struct OrderItemModel {
     pub id: i32,
     pub order_id: i32,
@@ -81,8 +74,8 @@ pub struct OrderItemModel {
     pub book_title: String,
     pub book_author: Option<String>,
     pub quantity: i32,
-    pub price_at_purchase: BigDecimal,
-    pub subtotal: BigDecimal,
+    pub price_at_purchase: Decimal,
+    pub subtotal: Decimal,
     pub created_at: DateTime<Utc>,
 }
 
@@ -99,9 +92,9 @@ impl From<OrderItemModel> for OrderItemEntity {
             book_title: model.book_title,
             book_author: model.book_author,
             quantity: model.quantity,
-            price_at_purchase: Money::new(model.price_at_purchase.to_f64().unwrap_or(0.0))
+            price_at_purchase: Money::from_decimal(model.price_at_purchase)
                 .expect("Invalid price"),
-            subtotal: Money::new(model.subtotal.to_f64().unwrap_or(0.0))
+            subtotal: Money::from_decimal(model.subtotal)
                 .expect("Invalid subtotal"),
             created_at: model.created_at,
         }
@@ -117,10 +110,8 @@ impl From<OrderItemEntity> for OrderItemModel {
             book_title: entity.book_title,
             book_author: entity.book_author,
             quantity: entity.quantity,
-            price_at_purchase: BigDecimal::from_f64(entity.price_at_purchase.value())
-                .unwrap_or_else(|| BigDecimal::from(0)),
-            subtotal: BigDecimal::from_f64(entity.subtotal.value())
-                .unwrap_or_else(|| BigDecimal::from(0)),
+            price_at_purchase: entity.price_at_purchase.to_decimal(),
+            subtotal: entity.subtotal.to_decimal(),
             created_at: entity.created_at,
         }
     }
