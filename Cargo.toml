@@ -17,8 +17,11 @@ sqlx = { version = "0.8.6", features = [
     "chrono",
     "json",
     "macros",
+    "rust_decimal",
 ] }
 
+rust_decimal = { version = "1.39", features = ["serde"] }
+rust_decimal_macros = "1.39"
 
 # Redis
 redis = "0.32.7"
@@ -43,9 +46,6 @@ chrono = { version = "0.4.42", features = ["serde"] }
 dotenvy = "0.15.0"
 anyhow = "1"
 thiserror = "2"
-
-rust_decimal = "1.39"
-rust_decimal_macros = "1.39.0"
 
 tracing = "0.1"
 tracing-subscriber = "0.3.0"
