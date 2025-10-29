@@ -1,17 +1,13 @@
 use chrono::{DateTime, Utc};
-use diesel::{Identifiable, Insertable, Queryable, Selectable};
+use serde::{Deserialize, Serialize};
+use sqlx::FromRow;
 
-use crate::{
-    infrastructure::postgres::schema::book_images,
-    domain::{
-        entities::book_image::BookImageEntity,
-        value_objects::isbn13::Isbn13,
-    },
+use crate::domain::{
+    entities::book_image::BookImageEntity,
+    value_objects::isbn13::Isbn13,
 };
 
-#[derive(Debug, Clone, Queryable, Insertable, Identifiable, Selectable)]
-#[diesel(table_name = book_images)]
-#[diesel(primary_key(id))]
+#[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
 pub struct BookImageModel {
     pub id: i32,
     pub book_isbn: String,
