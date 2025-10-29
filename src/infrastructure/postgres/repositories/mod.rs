@@ -4,3 +4,4 @@ pub mod branch_repository;
 pub mod category_repository;
 pub mod inventory_repository;
 pub mod order_repository;
+pub mod payment_repository;
