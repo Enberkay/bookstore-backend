@@ -12,13 +12,17 @@ pub struct LoginResponse {
     pub refresh_token: String,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Deserialize)]
 pub struct RegisterRequest {
     pub fname: String,
     pub lname: String,
     pub email: String,
     pub password: String,
+    pub age: i32,
+    pub sex: String,
+    pub phone: String,
 }
+
 
 #[derive(Debug, Serialize)]
 pub struct RegisterResponse {
