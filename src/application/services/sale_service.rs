@@ -3,13 +3,13 @@ use anyhow::Result;
 use rust_decimal::prelude::FromPrimitive;
 use chrono::Utc;
 
-use crate::application::dtos::sale_dto::{
-    CreateSaleRequest,
-    SaleResponse,
+use crate::application::{
+    dtos::sale_dto::{CreateSaleRequest, SaleResponse, SaleItemRequest},
+    services::inventory_adjust_service::InventoryAdjustService,
 };
 use crate::domain::{
     entities::{
-        sale::SaleEntity,
+        sale::{SaleEntity, SaleItemEntity},
         payment::PaymentEntity,
         receipt::ReceiptEntity,
     },
@@ -21,11 +21,12 @@ use crate::domain::{
     value_objects::{money::Money, receipt_code::ReceiptCode},
 };
 
-/// SaleService — orchestrates sale → payment → receipt flow
+/// SaleService — orchestrates sale → payment → receipt → inventory flow
 pub struct SaleService {
     sale_repo: Arc<dyn SaleRepository>,
     payment_repo: Arc<dyn PaymentRepository>,
     receipt_repo: Arc<dyn ReceiptRepository>,
+    inventory_adjust_service: Arc<InventoryAdjustService>, //เชื่อม inventory service
 }
 
 impl SaleService {
@@ -33,15 +34,17 @@ impl SaleService {
         sale_repo: Arc<dyn SaleRepository>,
         payment_repo: Arc<dyn PaymentRepository>,
         receipt_repo: Arc<dyn ReceiptRepository>,
+        inventory_adjust_service: Arc<InventoryAdjustService>,
     ) -> Self {
         Self {
             sale_repo,
             payment_repo,
             receipt_repo,
+            inventory_adjust_service,
         }
     }
 
-    /// Create a new sale, process payment, and issue receipt
+    /// Create a new sale, process payment, issue receipt, and adjust inventory
     pub async fn create_sale(&self, req: CreateSaleRequest) -> Result<SaleResponse> {
         // Step 1: Convert f64 → Money
         let total = Money::from_decimal(
@@ -87,8 +90,31 @@ impl SaleService {
         receipt.set_payment_ref(payment.transaction_ref.clone());
         self.receipt_repo.save(&receipt).await?;
 
+        //Step 5: Convert DTO items → domain entities
+        let sale_items: Vec<SaleItemEntity> = req
+            .items
+            .iter()
+            .map(|i: &SaleItemRequest| {
+                let unit_price = rust_decimal::Decimal::from_f64(i.unit_price)
+                    .ok_or_else(|| anyhow::anyhow!("Invalid unit price"))?;
+                let price_money = Money::from_decimal(unit_price)?;
+                Ok(SaleItemEntity::new(
+                    sale.id,
+                    i.book_isbn.clone(),
+                    i.book_title.clone(),
+                    i.book_author.clone(),
+                    i.quantity,
+                    price_money,
+                )?)
+            })
+            .collect::<Result<Vec<_>, anyhow::Error>>()?;
 
-        // Step 5: Return composed response
+        //Step 6: Adjust inventory (หักสต็อกตามสินค้าที่ขาย)
+        self.inventory_adjust_service
+            .apply_sale_items(req.branch_id, &sale_items)
+            .await?;
+
+        // Step 7: Return composed response
         Ok(SaleResponse::from((sale, payment, receipt)))
     }
 
@@ -99,13 +125,15 @@ impl SaleService {
             return Ok(None);
         };
 
-        let payment_opt = self.payment_repo
+        let payment_opt = self
+            .payment_repo
             .find_by_order(id)
             .await?
             .into_iter()
             .find(|p| p.sale_id == Some(id));
 
-        let receipt_opt = self.receipt_repo
+        let receipt_opt = self
+            .receipt_repo
             .find_by_reference(id)
             .await?
             .into_iter()
