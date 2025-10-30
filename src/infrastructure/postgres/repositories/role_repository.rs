@@ -20,7 +20,6 @@ impl PostgresRoleRepository {
 
 #[async_trait]
 impl RoleRepository for PostgresRoleRepository {
-    /// ดึง role ทั้งหมด
     async fn find_all(&self) -> Result<Vec<RoleEntity>> {
         let results = sqlx::query_as::<_, RoleModel>(
             r#"
@@ -35,7 +34,6 @@ impl RoleRepository for PostgresRoleRepository {
         Ok(results.into_iter().map(RoleEntity::from).collect())
     }
 
-    /// ดึง role ตาม id
     async fn find_by_id(&self, id: i32) -> Result<Option<RoleEntity>> {
         let result = sqlx::query_as::<_, RoleModel>(
             r#"
@@ -51,7 +49,22 @@ impl RoleRepository for PostgresRoleRepository {
         Ok(result.map(RoleEntity::from))
     }
 
-    /// บันทึก role ใหม่
+    async fn find_by_ids(&self, ids: &[i32]) -> Result<Vec<RoleEntity>> {
+        let results = sqlx::query_as::<_, RoleModel>(
+            r#"
+            SELECT id, name, description, created_at, updated_at
+            FROM roles
+            WHERE id = ANY($1)
+            ORDER BY id ASC
+            "#,
+        )
+        .bind(ids)
+        .fetch_all(&self.pool)
+        .await?;
+
+        Ok(results.into_iter().map(RoleEntity::from).collect())
+    }
+
     async fn save(&self, role: &RoleEntity) -> Result<()> {
         sqlx::query!(
             r#"
@@ -61,36 +74,31 @@ impl RoleRepository for PostgresRoleRepository {
             role.name,
             role.description,
             role.created_at,
-            role.updated_at
+            role.created_at // ใช้ created_at สำหรับ updated_at ถ้ายังไม่มี
         )
         .execute(&self.pool)
         .await?;
-
         Ok(())
     }
 
-    /// อัปเดตข้อมูล role
     async fn update(&self, role: &RoleEntity) -> Result<()> {
         sqlx::query!(
             r#"
             UPDATE roles
             SET name = $1,
                 description = $2,
-                updated_at = $3
-            WHERE id = $4
+                updated_at = NOW()
+            WHERE id = $3
             "#,
             role.name,
             role.description,
-            role.updated_at,
             role.id
         )
         .execute(&self.pool)
         .await?;
-
         Ok(())
     }
 
-    /// ลบ role ตาม id
     async fn delete(&self, id: i32) -> Result<()> {
         sqlx::query!(
             r#"
@@ -101,7 +109,6 @@ impl RoleRepository for PostgresRoleRepository {
         )
         .execute(&self.pool)
         .await?;
-
         Ok(())
     }
 }
