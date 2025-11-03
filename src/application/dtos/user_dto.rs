@@ -1,26 +1,53 @@
 use serde::{Deserialize, Serialize};
+use validator::Validate;
 use crate::domain::entities::user::UserEntity;
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Validate)]
 pub struct CreateUserRequest {
+    #[validate(length(min = 2, max = 50, message = "First name must be 2-50 characters"))]
     pub first_name: String,
+
+    #[validate(length(min = 2, max = 50, message = "Last name must be 2-50 characters"))]
     pub last_name: String,
+
+    #[validate(email(message = "Invalid email format"))]
     pub email: String,
+
+    #[validate(range(min = 1, max = 120, message = "Age must be between 1 and 120"))]
     pub age: i32,
+
+    #[validate(length(min = 1, max = 20, message = "Sex must be 1-20 characters"))]
     pub sex: String,
+
+    #[validate(length(min = 6, max = 20, message = "Phone must be 6-20 characters"))]
     pub phone: String,
+
+    #[validate(length(min = 8, message = "Password must be at least 8 characters"))]
     pub password: String,
+
     pub branch_id: Option<i32>,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Validate)]
 pub struct UpdateUserRequest {
+    #[validate(length(min = 2, max = 50, message = "First name must be 2-50 characters"))]
     pub first_name: Option<String>,
+
+    #[validate(length(min = 2, max = 50, message = "Last name must be 2-50 characters"))]
     pub last_name: Option<String>,
+
+    #[validate(email(message = "Invalid email format"))]
     pub email: Option<String>,
+
+    #[validate(range(min = 1, max = 120, message = "Age must be between 1 and 120"))]
     pub age: Option<i32>,
+
+    #[validate(length(min = 1, max = 20, message = "Sex must be 1-20 characters"))]
     pub sex: Option<String>,
+
+    #[validate(length(min = 6, max = 20, message = "Phone must be 6-20 characters"))]
     pub phone: Option<String>,
+
     pub branch_id: Option<i32>,
 }
 
