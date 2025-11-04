@@ -4,7 +4,11 @@ use axum::{
     routing::{get, post, put, delete},
     Json, Router,
 };
+use serde_json::json;
+use validator::Validate;
+
 use crate::application::{
+    application_errors::ApplicationError,
     dtos::role_dto::{CreateRoleRequest, UpdateRoleRequest, RoleResponse},
     services::role_service::RoleService,
 };
@@ -24,30 +28,35 @@ pub fn routes(role_service: Arc<RoleService>) -> Router {
 async fn create_role(
     State(service): State<Arc<RoleService>>,
     Json(payload): Json<CreateRoleRequest>,
-) -> Result<Json<RoleResponse>, (axum::http::StatusCode, String)> {
-    service
-        .create_role(payload)
-        .await
-        .map(Json)
-        .map_err(internal_error)
+) -> Result<Json<RoleResponse>, ApplicationError> {
+    payload
+        .validate()
+        .map_err(|e| ApplicationError::bad_request(e.to_string()))?;
+
+    service.create_role(payload).await.map(Json).map_err(|e| {
+        ApplicationError::internal(format!("Failed to create role: {}", e))
+    })
 }
 
 /// GET /roles
 async fn get_all_roles(
     State(service): State<Arc<RoleService>>,
-) -> Result<Json<Vec<RoleResponse>>, (axum::http::StatusCode, String)> {
-    service.get_all_roles().await.map(Json).map_err(internal_error)
+) -> Result<Json<Vec<RoleResponse>>, ApplicationError> {
+    service.get_all_roles().await.map(Json).map_err(|e| {
+        ApplicationError::internal(format!("Failed to fetch roles: {}", e))
+    })
 }
 
 /// GET /roles/{id}
 async fn get_role_by_id(
     State(service): State<Arc<RoleService>>,
     Path(id): Path<i32>,
-) -> Result<Json<RoleResponse>, (axum::http::StatusCode, String)> {
-    match service.get_role_by_id(id).await {
-        Ok(Some(role)) => Ok(Json(role)),
-        Ok(None) => Err((axum::http::StatusCode::NOT_FOUND, "Role not found".into())),
-        Err(e) => Err(internal_error(e)),
+) -> Result<Json<RoleResponse>, ApplicationError> {
+    match service.get_role_by_id(id).await.map_err(|e| {
+        ApplicationError::internal(format!("Failed to fetch role: {}", e))
+    })? {
+        Some(role) => Ok(Json(role)),
+        None => Err(ApplicationError::not_found("Role not found")),
     }
 }
 
@@ -56,25 +65,26 @@ async fn update_role(
     State(service): State<Arc<RoleService>>,
     Path(id): Path<i32>,
     Json(payload): Json<UpdateRoleRequest>,
-) -> Result<Json<serde_json::Value>, (axum::http::StatusCode, String)> {
-    match service.update_role(id, payload).await {
-        Ok(_) => Ok(Json(serde_json::json!({"status": "updated"}))),
-        Err(e) => Err(internal_error(e)),
-    }
+) -> Result<Json<serde_json::Value>, ApplicationError> {
+    payload
+        .validate()
+        .map_err(|e| ApplicationError::bad_request(e.to_string()))?;
+
+    service.update_role(id, payload).await.map_err(|e| {
+        ApplicationError::internal(format!("Failed to update role: {}", e))
+    })?;
+
+    Ok(Json(json!({ "status": "updated" })))
 }
 
 /// DELETE /roles/{id}
 async fn delete_role(
     State(service): State<Arc<RoleService>>,
     Path(id): Path<i32>,
-) -> Result<Json<serde_json::Value>, (axum::http::StatusCode, String)> {
-    match service.delete_role(id).await {
-        Ok(_) => Ok(Json(serde_json::json!({"status": "deleted"}))),
-        Err(e) => Err(internal_error(e)),
-    }
-}
+) -> Result<Json<serde_json::Value>, ApplicationError> {
+    service.delete_role(id).await.map_err(|e| {
+        ApplicationError::internal(format!("Failed to delete role: {}", e))
+    })?;
 
-/// Generic error helper
-fn internal_error<E: std::fmt::Display>(err: E) -> (axum::http::StatusCode, String) {
-    (axum::http::StatusCode::INTERNAL_SERVER_ERROR, err.to_string())
+    Ok(Json(json!({ "status": "deleted" })))
 }
