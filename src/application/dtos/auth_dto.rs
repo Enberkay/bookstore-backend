@@ -1,5 +1,6 @@
 use serde::{Deserialize, Serialize};
 use validator::Validate;
+use serde_aux::field_attributes::deserialize_number_from_string;
 
 #[derive(Debug, Deserialize, Validate)]
 pub struct LoginRequest {
@@ -31,6 +32,7 @@ pub struct RegisterRequest {
     #[validate(length(min = 8, message = "Password must be at least 8 characters"))]
     pub password: String,
 
+    #[serde(deserialize_with = "deserialize_number_from_string")]
     #[validate(range(min = 1, max = 120, message = "Age must be between 1 and 120"))]
     pub age: i32,
 
