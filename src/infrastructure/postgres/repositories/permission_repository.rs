@@ -83,22 +83,26 @@ impl PermissionRepository for PostgresPermissionRepository {
         Ok(result.id)
     }
 
-    async fn update(&self, permission: &PermissionEntity) -> Result<()> {
-        sqlx::query!(
+    async fn update(&self, id: i32, name: Option<String>, description: Option<String>) -> Result<PermissionEntity> {
+        let result = sqlx::query_as!(
+            PermissionModel,
             r#"
             UPDATE permissions
-            SET name = $1,
-                description = $2,
+            SET 
+                name = COALESCE($1, name),
+                description = COALESCE($2, description),
                 updated_at = NOW()
             WHERE id = $3
+            RETURNING id, name, description, created_at, updated_at
             "#,
-            permission.name,
-            permission.description,
-            permission.id,
+            name.as_ref(),
+            description.as_ref(),
+            id,
         )
-        .execute(&self.pool)
+        .fetch_one(&self.pool)
         .await?;
-        Ok(())
+
+        Ok(PermissionEntity::from(result))
     }
 
     async fn delete(&self, id: i32) -> Result<()> {

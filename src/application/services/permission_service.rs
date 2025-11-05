@@ -45,31 +45,41 @@ impl PermissionService {
         Ok(permission_opt.map(PermissionResponse::from))
     }
 
-    pub async fn update_permission(&self, id: i32, req: UpdatePermissionRequest) -> ApplicationResult<()> {
-        let mut permission = match self.repo.find_by_id(id).await.map_err(|e| {
-            ApplicationError::internal(format!("Failed to find permission: {}", e))
+    pub async fn update_permission(&self, id: i32, req: UpdatePermissionRequest) -> ApplicationResult<PermissionResponse> {
+        // Validate input first
+        if let Some(name) = &req.name {
+            let temp_permission = PermissionEntity::new(name.clone(), None)
+                .map_err(|e| ApplicationError::bad_request(e.to_string()))?;
+            temp_permission.validate().map_err(|e| ApplicationError::bad_request(e.to_string()))?;
+        }
+
+        // Use COALESCE update - single query approach
+        let updated_permission = self.repo.update(
+            id,
+            req.name,
+            req.description
+        ).await.map_err(|e| {
+            ApplicationError::internal(format!("Failed to update permission: {}", e))
+        })?;
+
+        Ok(PermissionResponse::from(updated_permission))
+    }
+
+    pub async fn delete_permission(&self, id: i32) -> ApplicationResult<PermissionResponse> {
+        // Get permission before deletion for response
+        let permission = match self.repo.find_by_id(id).await.map_err(|e| {
+            ApplicationError::internal(format!("Failed to fetch permission: {}", e))
         })? {
             Some(p) => p,
             None => return Err(ApplicationError::not_found("Permission not found")),
         };
 
-        if let Some(name) = req.name {
-            permission.name = name;
-        }
-        if let Some(desc) = req.description {
-            permission.description = Some(desc);
-        }
-
-        permission.validate().map_err(|e| ApplicationError::bad_request(e.to_string()))?;
-        self.repo.update(&permission).await.map_err(|e| {
-            ApplicationError::internal(format!("Failed to update permission: {}", e))
-        })?;
-        Ok(())
-    }
-
-    pub async fn delete_permission(&self, id: i32) -> ApplicationResult<()> {
+        // Delete permission
         self.repo.delete(id).await.map_err(|e| {
             ApplicationError::internal(format!("Failed to delete permission: {}", e))
-        })
+        })?;
+
+        // Return deleted permission data
+        Ok(PermissionResponse::from(permission))
     }
 }

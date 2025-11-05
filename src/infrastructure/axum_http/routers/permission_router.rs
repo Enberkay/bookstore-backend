@@ -4,7 +4,7 @@ use axum::{
     routing::{get, post, put, delete},
     Json, Router,
 };
-use serde_json::json;
+
 use validator::Validate;
 
 use crate::application::{
@@ -59,20 +59,20 @@ async fn update_permission(
     State(service): State<Arc<PermissionService>>,
     Path(id): Path<i32>,
     Json(payload): Json<UpdatePermissionRequest>,
-) -> Result<Json<serde_json::Value>, ApplicationError> {
+) -> Result<Json<PermissionResponse>, ApplicationError> {
     payload
         .validate()
         .map_err(|e| ApplicationError::bad_request(e.to_string()))?;
 
-    service.update_permission(id, payload).await?;
-    Ok(Json(json!({ "status": "updated" })))
+    // Update และคืนข้อมูลที่อัพเดตแล้วในครั้งเดียว
+    Ok(Json(service.update_permission(id, payload).await?))
 }
 
 /// DELETE /permissions/{id}
 async fn delete_permission(
     State(service): State<Arc<PermissionService>>,
     Path(id): Path<i32>,
-) -> Result<Json<serde_json::Value>, ApplicationError> {
-    service.delete_permission(id).await?;
-    Ok(Json(json!({ "status": "deleted" })))
+) -> Result<Json<PermissionResponse>, ApplicationError> {
+    // Delete and return deleted permission data
+    Ok(Json(service.delete_permission(id).await?))
 }
