@@ -27,6 +27,7 @@ pub struct PermissionResponse {
     pub name: String,
     pub description: Option<String>,
     pub created_at: DateTime<Utc>,
+    pub updated_at: DateTime<Utc>,
 }
 
 impl From<PermissionEntity> for PermissionResponse {
@@ -36,6 +37,7 @@ impl From<PermissionEntity> for PermissionResponse {
             name: entity.name,
             description: entity.description,
             created_at: entity.created_at,
+            updated_at: entity.updated_at,
         }
     }
 }
