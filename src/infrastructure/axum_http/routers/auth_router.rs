@@ -1,15 +1,17 @@
 use axum::{
-    extract::State,
+    extract::{State, rejection::JsonRejection},
+    http::StatusCode,
+    response::IntoResponse,
     routing::post,
     Json, Router,
 };
 use std::sync::Arc;
 use serde_json::json;
 use validator::Validate;
+use tracing::warn;
 
 use crate::{
     application::{
-        application_errors::ApplicationError,
         services::auth_service::AuthService,
         dtos::auth_dto::{LoginRequest, RegisterRequest},
     },
@@ -29,11 +31,28 @@ pub fn routes(auth_service: Arc<AuthService>) -> Router {
         .with_state(state)
 }
 
+// ===============================
+// REGISTER HANDLER
+// ===============================
 async fn register(
     State(state): State<AuthRouterState>,
-    Json(req): Json<RegisterRequest>,
-) -> Result<Json<serde_json::Value>, ApplicationError> {
-    //ตรวจสอบ validation
+    payload: Result<Json<RegisterRequest>, JsonRejection>,
+) -> impl IntoResponse {
+    // --- Handle invalid JSON ---
+    let req = match payload {
+        Ok(Json(req)) => req,
+        Err(rejection) => {
+            warn!("Invalid register JSON: {}", rejection.body_text());
+            let response = json!({
+                "success": false,
+                "error": format!("Invalid or incomplete JSON body: {}", rejection.body_text()),
+                "hint": "Required fields: fname, lname, email, password, age, sex, phone"
+            });
+            return (StatusCode::BAD_REQUEST, Json(response)).into_response();
+        }
+    };
+
+    // --- Validate DTO ---
     if let Err(e) = req.validate() {
         let msg = e
             .field_errors()
@@ -42,24 +61,48 @@ async fn register(
             .map(|m| m.to_string())
             .collect::<Vec<_>>()
             .join(", ");
-        return Err(ApplicationError::bad_request(msg));
+
+        let response = json!({ "success": false, "error": msg });
+        return (StatusCode::BAD_REQUEST, Json(response)).into_response();
     }
 
-    //ดำเนินการ register
+    // --- Call service ---
     match state.auth_service.register(req).await {
-        Ok(res) => Ok(Json(json!({
-            "status": "success",
-            "data": res
-        }))),
-        Err(err) => Err(ApplicationError::bad_request(err.to_string())),
+        Ok(res) => (
+            StatusCode::CREATED,
+            Json(json!({
+                "success": true,
+                "data": res
+            })),
+        )
+            .into_response(),
+
+        Err(err) => err.into_response(), //ApplicationError → JSON response
     }
 }
 
+// ===============================
+// LOGIN HANDLER
+// ===============================
 async fn login(
     State(state): State<AuthRouterState>,
-    Json(req): Json<LoginRequest>,
-) -> Result<Json<serde_json::Value>, ApplicationError> {
-    //ตรวจสอบ validation
+    payload: Result<Json<LoginRequest>, JsonRejection>,
+) -> impl IntoResponse {
+    // --- Handle invalid JSON ---
+    let req = match payload {
+        Ok(Json(req)) => req,
+        Err(rejection) => {
+            warn!("Invalid login JSON: {}", rejection.body_text());
+            let response = json!({
+                "success": false,
+                "error": format!("Invalid or incomplete JSON body: {}", rejection.body_text()),
+                "hint": "Required fields: email, password"
+            });
+            return (StatusCode::BAD_REQUEST, Json(response)).into_response();
+        }
+    };
+
+    // --- Validate DTO ---
     if let Err(e) = req.validate() {
         let msg = e
             .field_errors()
@@ -68,15 +111,22 @@ async fn login(
             .map(|m| m.to_string())
             .collect::<Vec<_>>()
             .join(", ");
-        return Err(ApplicationError::bad_request(msg));
+
+        let response = json!({ "success": false, "error": msg });
+        return (StatusCode::BAD_REQUEST, Json(response)).into_response();
     }
 
-    //ดำเนินการ login
+    // --- Call service ---
     match state.auth_service.login(req).await {
-        Ok(res) => Ok(Json(json!({
-            "status": "success",
-            "data": res
-        }))),
-        Err(err) => Err(ApplicationError::unauthorized(err.to_string())),
+        Ok(res) => (
+            StatusCode::OK,
+            Json(json!({
+                "success": true,
+                "data": res
+            })),
+        )
+            .into_response(),
+
+        Err(err) => err.into_response(),
     }
 }
