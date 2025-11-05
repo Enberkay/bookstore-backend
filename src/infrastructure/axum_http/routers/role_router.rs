@@ -4,7 +4,7 @@ use axum::{
     routing::{get, post, put, delete},
     Json, Router,
 };
-use serde_json::json;
+
 use validator::Validate;
 
 use crate::application::{
@@ -65,26 +65,20 @@ async fn update_role(
     State(service): State<Arc<RoleService>>,
     Path(id): Path<i32>,
     Json(payload): Json<UpdateRoleRequest>,
-) -> Result<Json<serde_json::Value>, ApplicationError> {
+) -> Result<Json<RoleResponse>, ApplicationError> {
     payload
         .validate()
         .map_err(|e| ApplicationError::bad_request(e.to_string()))?;
 
-    service.update_role(id, payload).await.map_err(|e| {
-        ApplicationError::internal(format!("Failed to update role: {}", e))
-    })?;
-
-    Ok(Json(json!({ "status": "updated" })))
+    // Update และคืนข้อมูลที่อัพเดตแล้วในครั้งเดียว
+    Ok(Json(service.update_role(id, payload).await?))
 }
 
 /// DELETE /roles/{id}
 async fn delete_role(
     State(service): State<Arc<RoleService>>,
     Path(id): Path<i32>,
-) -> Result<Json<serde_json::Value>, ApplicationError> {
-    service.delete_role(id).await.map_err(|e| {
-        ApplicationError::internal(format!("Failed to delete role: {}", e))
-    })?;
-
-    Ok(Json(json!({ "status": "deleted" })))
+) -> Result<Json<RoleResponse>, ApplicationError> {
+    // Delete and return deleted role data
+    Ok(Json(service.delete_role(id).await?))
 }

@@ -29,7 +29,7 @@ impl RoleService {
         let mut role = RoleEntity::new(req.name, req.description)
             .map_err(|e| ApplicationError::bad_request(e.to_string()))?;
 
-        self.role_repo.save(&role).await.map_err(|e| {
+        let role_id = self.role_repo.save(&role).await.map_err(|e| {
             ApplicationError::internal(format!("Failed to save role: {}", e))
         })?;
 
@@ -37,7 +37,7 @@ impl RoleService {
             let permissions = self.perm_repo.find_by_ids(&perm_ids).await.map_err(|e| {
                 ApplicationError::internal(format!("Failed to fetch permissions: {}", e))
             })?;
-            self.role_perm_repo.assign_permissions(role.id, &perm_ids).await.map_err(|e| {
+            self.role_perm_repo.assign_permissions(role_id, &perm_ids).await.map_err(|e| {
                 ApplicationError::internal(format!("Failed to assign permissions: {}", e))
             })?;
             role.set_permissions(permissions).map_err(|e| {
@@ -45,6 +45,8 @@ impl RoleService {
             })?;
         }
 
+        // Set the returned ID to the entity
+        role.id = role_id;
         Ok(RoleResponse::from(role))
     }
 
@@ -62,47 +64,83 @@ impl RoleService {
         Ok(role_opt.map(RoleResponse::from))
     }
 
-    pub async fn update_role(&self, id: i32, req: UpdateRoleRequest) -> ApplicationResult<()> {
-        let mut role = match self.role_repo.find_by_id(id).await.map_err(|e| {
+    pub async fn update_role(&self, id: i32, req: UpdateRoleRequest) -> ApplicationResult<RoleResponse> {
+        // Validate role exists first
+        let _ = match self.role_repo.find_by_id(id).await.map_err(|e| {
             ApplicationError::internal(format!("Failed to fetch role: {}", e))
         })? {
             Some(r) => r,
             None => return Err(ApplicationError::not_found("Role not found")),
         };
 
-        if let Some(name) = req.name {
-            role.name = name;
-        }
-        if let Some(desc) = req.description {
-            role.description = Some(desc);
-        }
-
-        if let Some(perm_ids) = req.permission_ids {
-            let permissions = self.perm_repo.find_by_ids(&perm_ids).await.map_err(|e| {
-                ApplicationError::internal(format!("Failed to fetch permissions: {}", e))
-            })?;
-            self.role_perm_repo.clear_permissions(role.id).await.map_err(|e| {
-                ApplicationError::internal(format!("Failed to clear permissions: {}", e))
-            })?;
-            self.role_perm_repo.assign_permissions(role.id, &perm_ids).await.map_err(|e| {
-                ApplicationError::internal(format!("Failed to assign permissions: {}", e))
-            })?;
-            role.set_permissions(permissions).map_err(|e| ApplicationError::bad_request(e.to_string()))?;
+        // Validate role name if provided
+        if let Some(name) = &req.name {
+            let temp_role = crate::domain::entities::role::RoleEntity::new(name.clone(), None)
+                .map_err(|e| ApplicationError::bad_request(e.to_string()))?;
+            temp_role.validate().map_err(|e| ApplicationError::bad_request(e.to_string()))?;
         }
 
-        role.validate().map_err(|e| ApplicationError::bad_request(e.to_string()))?;
-        self.role_repo.update(&role).await.map_err(|e| {
+        // Update role basic info using COALESCE
+        let updated_role = self.role_repo.update(
+            id,
+            req.name,
+            req.description
+        ).await.map_err(|e| {
             ApplicationError::internal(format!("Failed to update role: {}", e))
         })?;
-        Ok(())
+
+        // Handle permission updates separately if provided
+        if let Some(perm_ids) = req.permission_ids {
+            self.role_perm_repo.clear_permissions(id).await.map_err(|e| {
+                ApplicationError::internal(format!("Failed to clear permissions: {}", e))
+            })?;
+            
+            if !perm_ids.is_empty() {
+                let permissions = self.perm_repo.find_by_ids(&perm_ids).await.map_err(|e| {
+                    ApplicationError::internal(format!("Failed to fetch permissions: {}", e))
+                })?;
+                self.role_perm_repo.assign_permissions(id, &perm_ids).await.map_err(|e| {
+                    ApplicationError::internal(format!("Failed to assign permissions: {}", e))
+                })?;
+                
+                // Create final role with permissions
+                let mut final_role = updated_role;
+                final_role.set_permissions(permissions).map_err(|e| ApplicationError::bad_request(e.to_string()))?;
+                Ok(RoleResponse::from(final_role))
+            } else {
+                Ok(RoleResponse::from(updated_role))
+            }
+        } else {
+            // Fetch full role with existing permissions
+            match self.role_repo.find_by_id(id).await.map_err(|e| {
+                ApplicationError::internal(format!("Failed to fetch updated role: {}", e))
+            })? {
+                Some(full_role) => Ok(RoleResponse::from(full_role)),
+                None => Err(ApplicationError::not_found("Role not found after update")),
+            }
+        }
     }
 
-    pub async fn delete_role(&self, id: i32) -> ApplicationResult<()> {
+    pub async fn delete_role(&self, id: i32) -> ApplicationResult<RoleResponse> {
+        // Get role before deletion for response
+        let role = match self.role_repo.find_by_id(id).await.map_err(|e| {
+            ApplicationError::internal(format!("Failed to fetch role: {}", e))
+        })? {
+            Some(r) => r,
+            None => return Err(ApplicationError::not_found("Role not found")),
+        };
+
+        // Clear permissions first (due to foreign key constraints)
         self.role_perm_repo.clear_permissions(id).await.map_err(|e| {
             ApplicationError::internal(format!("Failed to clear permissions: {}", e))
         })?;
+
+        // Delete role
         self.role_repo.delete(id).await.map_err(|e| {
             ApplicationError::internal(format!("Failed to delete role: {}", e))
-        })
+        })?;
+
+        // Return deleted role data
+        Ok(RoleResponse::from(role))
     }
 }
