@@ -20,6 +20,7 @@ pub fn routes(user_service: Arc<UserService>) -> Router {
         .route("/{id}", put(update_user))
         .route("/{id}", delete(delete_user))
         .route("/{id}/deactivate", patch(deactivate_user))
+        .route("/{id}/activate", patch(activate_user))
         .with_state(user_service)
 }
 
@@ -84,4 +85,12 @@ async fn deactivate_user(
 ) -> Result<impl IntoResponse, ApplicationError> {
     let user = user_service.deactivate_user(id).await?;
     Ok(Json(user))
+}
+
+async fn activate_user(
+    Path(id): Path<i32>,
+    State(service): State<Arc<UserService>>,
+) -> Result<Json<serde_json::Value>, ApplicationError> {
+    let user = service.activate_user(id).await?;
+    Ok(Json(serde_json::json!({ "status": "activated", "user": user })))
 }
