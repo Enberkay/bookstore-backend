@@ -26,7 +26,7 @@ use crate::{
         },
 
     },
-    presentation::http::{health_router, routers},
+    presentation::http::routers,
     application::use_cases::{
         auth_usecase::AuthUseCase,
         permission_usecase::PermissionUseCase,
@@ -34,6 +34,29 @@ use crate::{
         user_usecase::UserUseCase,
     },
 };
+
+// Health check and not found handlers
+async fn health_check() -> impl axum::response::IntoResponse {
+    let timestamp = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_secs();
+
+    let response = serde_json::json!({
+        "success": true,
+        "message": "Service is healthy",
+        "time": timestamp
+    });
+    (axum::http::StatusCode::OK, axum::Json(response))
+}
+
+async fn not_found() -> impl axum::response::IntoResponse {
+    let response = serde_json::json!({
+        "success": false,
+        "message": "Endpoint not found"
+    });
+    (axum::http::StatusCode::NOT_FOUND, axum::Json(response))
+}
 
 /// Starts the Axum HTTP server with all routers configured.
 pub async fn start_server(config: Arc<AppConfig>, db_pool: Arc<PgPoolSquad>) -> anyhow::Result<()> {
@@ -69,13 +92,10 @@ pub async fn start_server(config: Arc<AppConfig>, db_pool: Arc<PgPoolSquad>) -> 
     let permission_usecase = Arc::new(PermissionUseCase::new(perm_repo));
 
 
-    // --- Health router ---
-    let health_router = Router::new().route("/health", get(health_router::health_check));
-
     // --- Application router ---
     let app = Router::new()
-        .merge(health_router)
-        .fallback(health_router::not_found)
+        .route("/health", get(health_check))
+        .fallback(not_found)
         .nest("/auth", routers::auth_router::routes(auth_usecase, jwt_repo.clone()))
         .nest("/users", routers::user_router::routes(user_usecase, config.users_secret.secret.clone()))
         .nest("/roles", routers::role_router::routes(role_usecase))
