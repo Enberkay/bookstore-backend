@@ -1,7 +1,4 @@
 BEGIN;
--- =====================================================
--- =============== RBAC CORE TABLES ====================
--- =====================================================
 
 CREATE TABLE users (
     id SERIAL PRIMARY KEY,
@@ -49,10 +46,6 @@ CREATE TABLE role_permissions (
     PRIMARY KEY (role_id, permission_id)
 );
 
--- =====================================================
--- ================== BOOK CATALOG =====================
--- =====================================================
-
 CREATE TABLE books (
     isbn VARCHAR(13) PRIMARY KEY,
     title VARCHAR(255) NOT NULL,
@@ -80,10 +73,6 @@ CREATE TABLE book_categories (
     PRIMARY KEY (book_isbn, category_id)
 );
 
--- =====================================================
--- =============== BOOK IMAGES (MULTIPLE) ==============
--- =====================================================
-
 CREATE TABLE book_images (
     id SERIAL PRIMARY KEY,
     book_isbn VARCHAR(13) NOT NULL REFERENCES books(isbn) ON DELETE CASCADE,
@@ -96,10 +85,6 @@ CREATE TABLE book_images (
 CREATE INDEX idx_book_images_book_isbn ON book_images(book_isbn);
 CREATE INDEX idx_book_images_type ON book_images(image_type);
 
--- =====================================================
--- ================== INVENTORY ========================
--- =====================================================
-
 CREATE TABLE inventories (
     branch_id INTEGER NOT NULL REFERENCES branches(id) ON DELETE CASCADE,
     book_isbn VARCHAR(13) NOT NULL REFERENCES books(isbn) ON DELETE CASCADE,
@@ -107,10 +92,6 @@ CREATE TABLE inventories (
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     PRIMARY KEY (branch_id, book_isbn)
 );
-
--- =====================================================
--- ================== ORDERS SYSTEM ====================
--- =====================================================
 
 CREATE TABLE orders (
     id SERIAL PRIMARY KEY,
@@ -136,10 +117,6 @@ CREATE TABLE order_items (
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
--- =====================================================
--- ================== SALES SYSTEM =====================
--- =====================================================
-
 CREATE TABLE sales (
     id SERIAL PRIMARY KEY,
     employee_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
@@ -162,10 +139,6 @@ CREATE TABLE sale_items (
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
--- =====================================================
--- ================== PAYMENTS =========================
--- =====================================================
-
 CREATE TABLE payments (
     id SERIAL PRIMARY KEY,
     order_id INTEGER REFERENCES orders(id) ON DELETE CASCADE,
@@ -177,10 +150,6 @@ CREATE TABLE payments (
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
-
--- =====================================================
--- ================== RECEIPTS (Centralized) ===========
--- =====================================================
 
 CREATE TABLE receipts (
     id SERIAL PRIMARY KEY,

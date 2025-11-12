@@ -4,13 +4,11 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-# Web Framework & Server
 axum = "0.8.6"
 tokio = { version = "1.47.1", features = ["full"] }
 tower = "0.5.2"
 tower-http = { version = "0.6.6", features = ["full"] }
 async-trait = "0.1.89"
-# Database & Driver
 sqlx = { version = "0.8.6", features = [
     "runtime-tokio-rustls",
     "postgres",
@@ -18,24 +16,17 @@ sqlx = { version = "0.8.6", features = [
     "json",
     "rust_decimal",
 ] }
-
 rust_decimal = { version = "1.39", features = ["serde"] }
 rust_decimal_macros = "1.39"
-
-# Serialization/Deserialization
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 serde-aux = "4.7.0"
-
-# Authentication & Security
 argon2 = { version = "0.5.3", features = ["std"] }
 jsonwebtoken = { version = "10", features = ["aws_lc_rs"] }
 rand = "0.9.2"
 axum-extra = { version = "0.10.3", features = ["cookie"] }
-
 chrono = { version = "0.4.42", features = ["serde"] }
 dotenvy = "0.15.0"
 anyhow = "1"
-
 tracing = "0.1"
 tracing-subscriber = "0.3.0"
