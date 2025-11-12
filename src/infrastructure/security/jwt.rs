@@ -11,7 +11,7 @@ pub trait JwtService: Send + Sync {
     async fn validate_access_token_claims(&self, token: &str) -> Result<Claims>;
     async fn generate_refresh_token(&self, user_id: i32) -> Result<String>;
     async fn validate_refresh_token(&self, token: &str) -> Result<i32>;
-    async fn hash_token(&self, token: &str) -> Result<String>;
+
     fn get_refresh_secret(&self) -> &str;
 }
 
@@ -104,19 +104,7 @@ impl JwtService for JwtTokenService {
         .map_err(|e| anyhow::anyhow!("Failed to create refresh token: {}", e))
     }
 
-    async fn hash_token(&self, token: &str) -> Result<String> {
-        use hmac::{Hmac, Mac};
-        use sha2::Sha256;
-        use hex;
 
-        type HmacSha256 = Hmac<Sha256>;
-        let mut mac = HmacSha256::new_from_slice(self.refresh_secret.as_bytes())
-            .map_err(|e| anyhow::anyhow!("Failed to create HMAC: {}", e))?;
-        mac.update(token.as_bytes());
-        let result = mac.finalize();
-        
-        Ok(hex::encode(result.into_bytes()))
-    }
 
     async fn validate_refresh_token(&self, token: &str) -> Result<i32> {
         let validation = Validation::default();
