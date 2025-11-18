@@ -1,4 +1,7 @@
+use anyhow::{bail, Result};
+use std::str::FromStr;
 
+#[derive(Debug, Clone)]
 pub struct AppConfig {
     pub server: Server,
     pub database: Database,
@@ -8,38 +11,27 @@ pub struct AppConfig {
 }
 
 impl AppConfig {
-    pub fn validate(&self) -> anyhow::Result<()> {
+    pub fn validate(&self) -> Result<()> {
         self.server.validate()?;
         self.database.validate()?;
         self.jwt.validate()?;
         self.users_secret.validate()?;
-        self.validate_cross_configuration()?;
-        Ok(())
-    }
 
-    fn validate_cross_configuration(&self) -> anyhow::Result<()> {
+        // cross-field validation
         if self.jwt.access_token_expiry_minutes > 60 * 24 {
-            anyhow::bail!("JWT access token expiry should not exceed 24 hours")
+            bail!("JWT_ACCESS_TOKEN_EXPIRY_MINUTES must not exceed 24 hours");
         }
 
-        match self.environment {
-            Environment::Production => {
-                if self.server.cors_allowed_origins.contains(&"*".to_string()) {
-                    anyhow::bail!("CORS cannot allow all origins (*) in production")
-                }
+        if matches!(self.environment, Environment::Production | Environment::Staging) {
+            if self.server.cors_allowed_origins.contains(&"*".to_string()) {
+                bail!("CORS cannot allow wildcard (*) in production or staging");
             }
-            Environment::Staging => {
-                if self.server.cors_allowed_origins.contains(&"*".to_string()) {
-                    anyhow::bail!("CORS cannot allow all origins (*) in staging")
-                }
-            }
-            Environment::Development => {}
         }
+
         Ok(())
     }
 }
 
-// Server
 #[derive(Debug, Clone)]
 pub struct Server {
     pub port: u16,
@@ -49,41 +41,39 @@ pub struct Server {
 }
 
 impl Server {
-    pub fn validate(&self) -> anyhow::Result<()> {
+    pub fn validate(&self) -> Result<()> {
         if self.port == 0 {
-            anyhow::bail!("Server port must be greater than 0.")
+            bail!("SERVER_PORT must be greater than 0");
         }
         if self.body_limit == 0 {
-            anyhow::bail!("Server body limit must be greater than 0.")
+            bail!("SERVER_BODY_LIMIT must be greater than 0");
         }
         if self.timeout_seconds == 0 {
-            anyhow::bail!("Server timeout must be greater than 0.")
+            bail!("SERVER_TIMEOUT must be greater than 0");
         }
-        for origin in &self.cors_allowed_origins {
-            if origin == "*" && !origin.starts_with("http://") && !origin.starts_with("https://") {
-                anyhow::bail!("Invalid CORS origin format: {}", origin)
-            }
+
+        if self.cors_allowed_origins.iter().any(|o| o != "*" && !o.starts_with("http")) {
+            bail!("CORS origins must start with http:// or https:// or be '*'");
         }
+
         Ok(())
     }
 }
 
-// Database
 #[derive(Debug, Clone)]
 pub struct Database {
     pub url: String,
 }
 
 impl Database {
-    pub fn validate(&self) -> anyhow::Result<()> {
-        if self.url.is_empty() {
-            anyhow::bail!("DATABASE_URL connot be empty.")
+    pub fn validate(&self) -> Result<()> {
+        if self.url.trim().is_empty() {
+            bail!("DATABASE_URL cannot be empty");
         }
         Ok(())
     }
 }
 
-// UsersSecret
 #[derive(Debug, Clone)]
 pub struct UsersSecret {
     pub secret: String,
@@ -91,18 +81,17 @@ pub struct UsersSecret {
 }
 
 impl UsersSecret {
-    pub fn validate(&self) -> anyhow::Result<()> {
+    pub fn validate(&self) -> Result<()> {
         if self.secret.len() < 32 {
-            anyhow::bail!("JWT_USERS_SECRET must be ≥ 32 chars.")
+            bail!("JWT_USERS_SECRET must be at least 32 characters");
         }
         if self.refresh_secret.len() < 32 {
-            anyhow::bail!("JWT_USERS_REFRESH_SECRET must be ≥ 32 chars.")
+            bail!("JWT_USERS_REFRESH_SECRET must be at least 32 characters");
         }
         Ok(())
     }
 }
 
-// JwtConfig
 #[derive(Debug, Clone)]
 pub struct JwtConfig {
     pub access_token_expiry_minutes: u64,
@@ -110,34 +99,33 @@ pub struct JwtConfig {
 }
 
 impl JwtConfig {
-    pub fn validate(&self) -> anyhow::Result<()> {
+    pub fn validate(&self) -> Result<()> {
         if self.access_token_expiry_minutes == 0 {
-            anyhow::bail!("JWT_ACCESS_TOKEN_EXPIRY_MINUTES must be > 0.")
+            bail!("JWT_ACCESS_TOKEN_EXPIRY_MINUTES must be greater than 0");
         }
         if self.refresh_token_expiry_days == 0 {
-            anyhow::bail!("JWT_REFRESH_TOKEN_EXPIRY_DAYS must be > 0.")
+            bail!("JWT_REFRESH_TOKEN_EXPIRY_DAYS must be greater than 0");
         }
         Ok(())
     }
 }
 
-//Environment
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub enum Environment {
     Development,
     Staging,
     Production,
 }
 
-impl std::str::FromStr for Environment {
+impl FromStr for Environment {
     type Err = anyhow::Error;
 
-    fn from_str(s: &str) -> anyhow::Result<Self> {
+    fn from_str(s: &str) -> Result<Self> {
         match s.to_lowercase().as_str() {
-            "development" | "dev" => Ok(Self::Development),
+            "dev" | "development" => Ok(Self::Development),
             "staging" => Ok(Self::Staging),
-            "production" | "prod" => Ok(Self::Production),
-            _ => Err(anyhow::anyhow!("Invalid ENVIRONMENT: {}", s)),
+            "prod" | "production" => Ok(Self::Production),
+            _ => bail!("Invalid ENVIRONMENT value: {}", s),
         }
     }
 }

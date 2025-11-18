@@ -1,55 +1,40 @@
 use crate::infrastructure::config_model::*;
-use anyhow::{Context, Result, anyhow};
+use anyhow::{Context, Result};
+use std::env;
 
 pub fn load() -> Result<AppConfig> {
-    fn required_env(key: &str) -> Result<String> {
-        std::env::var(key)
-            .with_context(|| format!("MISSING required environment variable: {}", key))
-    }
-
-    fn parse_env<T: std::str::FromStr>(key: &str) -> Result<T>
-    where
-        T::Err: std::fmt::Display + Send + Sync + 'static,
-    {
-        let value = required_env(key)?;
-        value
-            .parse::<T>()
-            .map_err(|e| anyhow!("Invalid value for {}: {}", key, e))
-    }
-
-    // Server
     let server = Server {
-        port: parse_env("SERVER_PORT")?,
-        body_limit: parse_env("SERVER_BODY_LIMIT")?,
-        timeout_seconds: parse_env("SERVER_TIMEOUT")?,
-        cors_allowed_origins: required_env("SERVER_CORS_ALLOWED_ORIGINS")?
+        port: env::var("SERVER_PORT")?.parse().context("SERVER_PORT must be a number")?,
+        body_limit: env::var("SERVER_BODY_LIMIT")?.parse().context("SERVER_BODY_LIMIT must be a number")?,
+        timeout_seconds: env::var("SERVER_TIMEOUT")?.parse().context("SERVER_TIMEOUT must be a number")?,
+        cors_allowed_origins: env::var("SERVER_CORS_ALLOWED_ORIGINS")?
             .split(',')
             .map(|s| s.trim().to_string())
             .filter(|s| !s.is_empty())
             .collect(),
     };
 
-    // Database
     let database = Database {
-        url: required_env("DATABASE_URL")?,
+        url: env::var("DATABASE_URL").context("DATABASE_URL is required")?,
     };
 
-    // JWT
     let jwt = JwtConfig {
-        access_token_expiry_minutes: parse_env("JWT_ACCESS_TOKEN_EXPIRY_MINUTES")?,
-        refresh_token_expiry_days: parse_env("JWT_REFRESH_TOKEN_EXPIRY_DAYS")?,
+        access_token_expiry_minutes: env::var("JWT_ACCESS_TOKEN_EXPIRY_MINUTES")?
+            .parse()
+            .context("JWT_ACCESS_TOKEN_EXPIRY_MINUTES must be a number")?,
+        refresh_token_expiry_days: env::var("JWT_REFRESH_TOKEN_EXPIRY_DAYS")?
+            .parse()
+            .context("JWT_REFRESH_TOKEN_EXPIRY_DAYS must be a number")?,
     };
 
-    // Environment
-    let environment: Environment = required_env("ENVIRONMENT")?.parse()?;
+    let environment = env::var("ENVIRONMENT")?
+        .parse::<Environment>()?;
 
-    // Secrets
     let users_secret = UsersSecret {
-        secret: required_env("JWT_USERS_SECRET")?,
-        refresh_secret: required_env("JWT_USERS_REFRESH_SECRET")?,
+        secret: env::var("JWT_USERS_SECRET").context("JWT_USERS_SECRET is required")?,
+        refresh_secret: env::var("JWT_USERS_REFRESH_SECRET").context("JWT_USERS_REFRESH_SECRET is required")?,
     };
 
-    // Compose full config
     let config = AppConfig {
         server,
         database,
@@ -58,7 +43,6 @@ pub fn load() -> Result<AppConfig> {
         users_secret,
     };
 
-    // Validate post-load constraints
     config.validate()?;
     Ok(config)
 }
