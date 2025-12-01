@@ -105,8 +105,7 @@ impl UserRepository for PostgresUserRepository {
         phone: Option<String>,
         is_active: Option<bool>,
     ) -> Result<UserEntity> {
-        let result = sqlx::query_as!(
-            UserModel,
+        let result = sqlx::query_as::<_, UserModel>(
             r#"
             UPDATE users
             SET
@@ -122,15 +121,15 @@ impl UserRepository for PostgresUserRepository {
             RETURNING id, fname, lname, email, age, sex, phone, password,
                       is_active, created_at, updated_at
             "#,
-            first_name.as_deref(),
-            last_name.as_deref(),
-            email.as_deref(),
-            age,
-            sex.as_deref(),
-            phone.as_deref(),
-            is_active,
-            id,
         )
+        .bind(first_name.as_deref())
+        .bind(last_name.as_deref())
+        .bind(email.as_deref())
+        .bind(age)
+        .bind(sex.as_deref())
+        .bind(phone.as_deref())
+        .bind(is_active)
+        .bind(id)
         .fetch_one(&self.pool)
         .await?;
 
@@ -138,7 +137,8 @@ impl UserRepository for PostgresUserRepository {
     }
 
     async fn delete(&self, id: i32) -> Result<()> {
-        sqlx::query!("DELETE FROM users WHERE id = $1", id)
+        sqlx::query("DELETE FROM users WHERE id = $1")
+            .bind(id)
             .execute(&self.pool)
             .await?;
         Ok(())
@@ -146,15 +146,15 @@ impl UserRepository for PostgresUserRepository {
 
     async fn assign_roles(&self, user_id: i32, role_ids: &[i32]) -> Result<()> {
         for &role_id in role_ids {
-            sqlx::query!(
+            sqlx::query(
                 r#"
                 INSERT INTO user_roles (user_id, role_id, assigned_at)
                 VALUES ($1, $2, NOW())
                 ON CONFLICT (user_id, role_id) DO NOTHING
                 "#,
-                user_id,
-                role_id
             )
+            .bind(user_id)
+            .bind(role_id)
             .execute(&self.pool)
             .await?;
         }
@@ -162,13 +162,11 @@ impl UserRepository for PostgresUserRepository {
     }
 
     async fn remove_roles(&self, user_id: i32, role_ids: &[i32]) -> Result<()> {
-        sqlx::query!(
-            "DELETE FROM user_roles WHERE user_id = $1 AND role_id = ANY($2)",
-            user_id,
-            role_ids
-        )
-        .execute(&self.pool)
-        .await?;
+        sqlx::query("DELETE FROM user_roles WHERE user_id = $1 AND role_id = ANY($2)")
+            .bind(user_id)
+            .bind(role_ids)
+            .execute(&self.pool)
+            .await?;
         Ok(())
     }
 

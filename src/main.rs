@@ -1,4 +1,4 @@
-use std::sync::Arc;
+// use std::sync::Arc;
 
 use clean_architecture_template::{
     infrastructure::config_loader,
@@ -36,7 +36,7 @@ async fn main() {
     };
 
     // Connect to PostgreSQL
-    let pg_pool = match postgres_connector::establish_connection(&app_config.database.url).await {
+    let _pg_pool = match postgres_connector::establish_connection(&app_config.database.url).await {
         Ok(pool) => {
             info!("PostgreSQL connection pool established");
             pool
