@@ -1,6 +1,5 @@
 /target
 .env
 .DS_Store
-*.yml
 *.md
 .claude

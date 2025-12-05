@@ -1,11 +1,11 @@
-use anyhow::{bail, Result};
-use std::str::FromStr;
+use anyhow::{bail, Context, Result};
+use std::{env, str::FromStr};
 
+// Configuration Models
 #[derive(Debug, Clone)]
 pub struct AppConfig {
     pub server: Server,
     pub database: Database,
-    pub users_secret: UsersSecret,
     pub jwt: JwtConfig,
     pub environment: Environment,
 }
@@ -15,17 +15,10 @@ impl AppConfig {
         self.server.validate()?;
         self.database.validate()?;
         self.jwt.validate()?;
-        self.users_secret.validate()?;
 
         // cross-field validation
         if self.jwt.access_token_expiry_minutes > 60 * 24 {
             bail!("JWT_ACCESS_TOKEN_EXPIRY_MINUTES must not exceed 24 hours");
-        }
-
-        if matches!(self.environment, Environment::Production | Environment::Staging) {
-            if self.server.cors_allowed_origins.contains(&"*".to_string()) {
-                bail!("CORS cannot allow wildcard (*) in production or staging");
-            }
         }
 
         Ok(())
@@ -35,9 +28,6 @@ impl AppConfig {
 #[derive(Debug, Clone)]
 pub struct Server {
     pub port: u16,
-    pub body_limit: u64,
-    pub timeout_seconds: u32,
-    pub cors_allowed_origins: Vec<String>,
 }
 
 impl Server {
@@ -45,17 +35,6 @@ impl Server {
         if self.port == 0 {
             bail!("SERVER_PORT must be greater than 0");
         }
-        if self.body_limit == 0 {
-            bail!("SERVER_BODY_LIMIT must be greater than 0");
-        }
-        if self.timeout_seconds == 0 {
-            bail!("SERVER_TIMEOUT must be greater than 0");
-        }
-
-        if self.cors_allowed_origins.iter().any(|o| o != "*" && !o.starts_with("http")) {
-            bail!("CORS origins must start with http:// or https:// or be '*'");
-        }
-
         Ok(())
     }
 }
@@ -75,27 +54,11 @@ impl Database {
 }
 
 #[derive(Debug, Clone)]
-pub struct UsersSecret {
-    pub secret: String,
-    pub refresh_secret: String,
-}
-
-impl UsersSecret {
-    pub fn validate(&self) -> Result<()> {
-        if self.secret.len() < 32 {
-            bail!("JWT_USERS_SECRET must be at least 32 characters");
-        }
-        if self.refresh_secret.len() < 32 {
-            bail!("JWT_USERS_REFRESH_SECRET must be at least 32 characters");
-        }
-        Ok(())
-    }
-}
-
-#[derive(Debug, Clone)]
 pub struct JwtConfig {
     pub access_token_expiry_minutes: u64,
     pub refresh_token_expiry_days: u64,
+    pub secret: String,
+    pub refresh_secret: String,
 }
 
 impl JwtConfig {
@@ -105,6 +68,12 @@ impl JwtConfig {
         }
         if self.refresh_token_expiry_days == 0 {
             bail!("JWT_REFRESH_TOKEN_EXPIRY_DAYS must be greater than 0");
+        }
+        if self.secret.len() < 32 {
+            bail!("JWT_SECRET must be at least 32 characters");
+        }
+        if self.refresh_secret.len() < 32 {
+            bail!("JWT_REFRESH_SECRET must be at least 32 characters");
         }
         Ok(())
     }
@@ -128,4 +97,39 @@ impl FromStr for Environment {
             _ => bail!("Invalid ENVIRONMENT value: {}", s),
         }
     }
+}
+
+// Configuration Loader
+pub fn load() -> Result<AppConfig> {
+    let server = Server {
+        port: env::var("SERVER_PORT")?.parse().context("SERVER_PORT must be a number")?,
+    };
+
+    let database = Database {
+        url: env::var("DATABASE_URL").context("DATABASE_URL is required")?,
+    };
+
+    let jwt = JwtConfig {
+        access_token_expiry_minutes: env::var("JWT_ACCESS_TOKEN_EXPIRY_MINUTES")?
+            .parse()
+            .context("JWT_ACCESS_TOKEN_EXPIRY_MINUTES must be a number")?,
+        refresh_token_expiry_days: env::var("JWT_REFRESH_TOKEN_EXPIRY_DAYS")?
+            .parse()
+            .context("JWT_REFRESH_TOKEN_EXPIRY_DAYS must be a number")?,
+        secret: env::var("JWT_SECRET").context("JWT_SECRET is required")?,
+        refresh_secret: env::var("JWT_REFRESH_SECRET").context("JWT_REFRESH_SECRET is required")?,
+    };
+
+    let environment = env::var("ENVIRONMENT")?
+        .parse::<Environment>()?;
+
+    let config = AppConfig {
+        server,
+        database,
+        jwt,
+        environment,
+    };
+
+    config.validate()?;
+    Ok(config)
 }

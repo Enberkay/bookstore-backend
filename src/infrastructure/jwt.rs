@@ -58,9 +58,7 @@ impl JwtTokenService {
     }
 }
 
-// ไม่ต้องมี #[async_trait] แล้ว
 impl JwtService for JwtTokenService {
-    // ตัด async ออก
     fn generate_access_token(&self, user_id: i32, roles: &[String]) -> Result<String> {
         let now = Utc::now();
         let exp = (now + self.access_token_expiry).timestamp() as usize;

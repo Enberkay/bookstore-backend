@@ -1,7 +1,14 @@
-// use std::sync::Arc;
+// =============================================================================
+// Clean Architecture + DDD Template - Main Entry Point
+// =============================================================================
+// This is a minimal example showing how to bootstrap your application.
+// For full HTTP server examples, see:
+//   - examples/axum_server.rs (for Axum framework)
+//   - examples/actix_server.rs (for Actix Web framework)
+// =============================================================================
 
 use clean_architecture_template::{
-    infrastructure::config_loader,
+    infrastructure::config,
     adapters::postgres::postgres_connector,
 };
 use tracing::{error, info};
@@ -9,24 +16,25 @@ use tracing_subscriber::EnvFilter;
 
 #[tokio::main]
 async fn main() {
-    // Load .env
+    // 1. Load environment variables from .env file
     if let Err(e) = dotenvy::dotenv() {
         eprintln!("Warning: couldn't load .env file: {}", e);
     }
 
-    // Initialize tracing (with env filter fallback)
+    // 2. Initialize structured logging
     tracing_subscriber::fmt()
         .with_env_filter(
-            EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new("info")),
+            EnvFilter::try_from_default_env()
+                .unwrap_or_else(|_| EnvFilter::new("info")),
         )
         .with_target(false)
         .compact()
         .init();
 
-    // Load configuration
-    let app_config = match config_loader::load() {
+    // 3. Load and validate application configuration
+    let app_config = match config::load() {
         Ok(cfg) => {
-            info!("Configuration loaded successfully for environment: {:?}", cfg.environment);
+            info!("Configuration loaded (environment: {:?})", cfg.environment);
             cfg
         }
         Err(e) => {
@@ -35,7 +43,7 @@ async fn main() {
         }
     };
 
-    // Connect to PostgreSQL
+    // 4. Establish database connection pool
     let _pg_pool = match postgres_connector::establish_connection(&app_config.database.url).await {
         Ok(pool) => {
             info!("PostgreSQL connection pool established");
@@ -47,6 +55,16 @@ async fn main() {
         }
     };
 
-    // Start HTTP server
-    info!("Starting Bookstore backend on port {}...", app_config.server.port);
+    // 5. TODO: Start your HTTP server here
+    // Uncomment one of the following based on your chosen framework:
+
+    // For Axum:
+    // See examples/axum_server.rs for complete implementation
+
+    // For Actix Web:
+    // See examples/actix_server.rs for complete implementation
+
+    info!("Application initialized successfully");
+    info!("This is a template - add your HTTP server implementation!");
+    info!(" See examples/ directory for Axum and Actix Web implementations");
 }

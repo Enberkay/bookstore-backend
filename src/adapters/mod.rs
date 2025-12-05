@@ -1,2 +1,2 @@
-pub mod postgres;
-pub mod http;
+pub mod postgres; // Diesel ORM, Sqlx, SeaORM, your decision
+pub mod http; // Actix Web or Axum, your decision
